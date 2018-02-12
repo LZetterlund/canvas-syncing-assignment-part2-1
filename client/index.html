@@ -2,12 +2,79 @@
 <html lang="en">
 <head>
     <script src="https://npmcdn.com/babel-core@5.8.38/browser.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
     <script type="text/babel" >
         "use strict";
+
+        let socket;
+        let draws = {};
+        let canvas = document.getElementById("canvas");
+        let ctx = canvas.getContext("2d");
+
+        const setupSocket = () => {
+            socket.on('connect', () => {
+                console.log('connecting');
+        
+                socket.emit('join');             
+            });
+            
+            socket.on('draw', (data) => {
+                console.log(data);
+                handleMessage(data);
+            });
+        };
+        
+        const draw = () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            let keys = Object.keys(draws);
+            
+            for(let i = 0; i < keys.length; i++)
+            {
+                const drawCall = draws[keys[i]];
+                //this square is colored red to indicate it is recieved via websockets, not from this client
+                if(drawCall.local == true){
+                    ctx.fillStyle = "#000000";
+                }
+                else{
+                    ctx.fillStyle = "#FF0000";
+                }
+                
+                ctx.fillRect(drawCall.x, drawCall.y, drawCall.width, drawCall.height);
+            }
+        };
+        
+        const setCalls = () => {
+            let randX = Math.floor(Math.random() * 300);
+            let randY = Math.floor(Math.random() * 300);
+            let time = new Date().getTime();
+            draws[time] = {x: randX, y: randY, width: 100, height: 100, local: true};
+            draw();
+            
+            time = new Date().getTime();
+            let coords = {x: randX, y: randY, width: 100, height: 100};
+            
+            socket.emit('draw', {time: time, coords: coords});
+        };
+        
+        const handleMessage = (data) => {
+            draws[data.time] = data.coords;
+            draw();
+        };
+
+        const init = () => {
+            socket = io.connect();
+            const sendSquare = document.querySelector("#sendSquare");
+            sendSquare.addEventListener('click', setCalls);
+            setupSocket();
+        };
+        
+        window.onload = init;
     
     </script>
 </head>
 <body>
-
+    <canvas id="canvas" width="400" height="400" style="border: 1px solid black;"></canvas>
+    <input id="sendSquare" type="button" value="Send squares"/>
 </body>
 </html>
